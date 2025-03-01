@@ -7,8 +7,8 @@
 
 static int __init mod_init(void)
 {
-	int i, j;
-	s64 results[NUM_RUNS][2];
+	int i;
+	s64 results[2];
 	u64 t0, t1;
 
 	// Done as a simple (and flawed) irqs-off vs preemption-off test for
@@ -23,30 +23,26 @@ static int __init mod_init(void)
 	// arch_local_irq_{save, restore} are "pushf; pop; cli" and
 	// if (flags & IF) sti, respectively.
 
+	t0 = rdtsc_ordered();
 	for (i = 0; i < NUM_RUNS; i++) {
-		t0 = rdtsc_ordered();
 		preempt_disable();
 		preempt_enable();
-		t1 = rdtsc_ordered();
-
-		results[i][0] = t1 - t0;
 	}
 
+	t1 = rdtsc_ordered();
+	results[0] = t1 - t0;
+
+	t0 = rdtsc_ordered();
 	for (i = 0; i < NUM_RUNS; i++) {
 		unsigned long flags;
-
-		t0 = rdtsc_ordered();
 		flags = arch_local_irq_save();
 		arch_local_irq_restore(flags);
-		t1 = rdtsc_ordered();
-
-		results[i][1] = t1 - t0;
 	}
+	t1 = rdtsc_ordered();
 
+	results[1] = t1 - t0;
 	for (i = 0; i < 2; i++) {
-		for (j = 0; j < NUM_RUNS; j++) {
-			pr_info("%s[%d] = %lld tsc cycles\n", i == 0 ? "PREEMPT" : "IRQ", j, results[j][i]);
-		}
+		pr_info("%s = %lld tsc cycles\n", i == 0 ? "PREEMPT" : "IRQ", results[i]);
 	}
 
 	// Note: We can't do this because none of the cyc2ns stuff is exported from tsc.c :/
